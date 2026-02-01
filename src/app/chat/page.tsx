@@ -168,7 +168,7 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // 消息队列播放 - 当有多条NPC消息时依次显示
+  // 消息队列播放 - 点击切换到下一条消息
   useEffect(() => {
     // 如果没有消息，重置
     if (messages.length === 0) {
@@ -184,22 +184,15 @@ export default function ChatPage() {
       return
     }
 
-    // 如果displayIndex已经是最后一条消息，停止自动播放
+    // 如果displayIndex已经是最后一条消息，停止等待点击
     if (displayIndex >= messages.length - 1) {
       setDisplayIndex(messages.length - 1)
       setIsAutoPlaying(false)
       return
     }
 
-    // 有未显示的消息，开始自动播放
+    // 有未显示的消息，等待用户点击
     setIsAutoPlaying(true)
-    
-    // 每条消息显示2秒后自动切换到下一条
-    const timer = setTimeout(() => {
-      setDisplayIndex(prev => Math.min(prev + 1, messages.length - 1))
-    }, 2000)
-
-    return () => clearTimeout(timer)
   }, [displayIndex, messages.length, isTyping])
 
   // 点击对话框跳到下一条消息
@@ -267,18 +260,26 @@ export default function ChatPage() {
     return fullContent
   }
 
-  // 解析多NPC消息并拆分为独立消息
+  // 解析多NPC消息并拆分为独立消息，支持沉默标记
   const splitNpcMessages = (content: string) => {
     // 匹配所有 [角色名] 内容 的格式
     const pattern = /\[([^\]]+)\]\s*([^\[]*)/g
-    const matches: Array<{ name: string; content: string }> = []
+    const matches: Array<{ name: string; content: string; isSilence: boolean }> = []
     let match
     
     while ((match = pattern.exec(content)) !== null) {
       const name = match[1].trim()
       const text = match[2].trim()
-      if (text) {
-        matches.push({ name, content: text })
+      
+      // 检测是否为沉默标记
+      const isSilence = text.toUpperCase() === '[SILENCE]'
+      
+      if (isSilence) {
+        // 沉默消息也要添加
+        matches.push({ name, content: '[SILENCE]', isSilence: true })
+      } else if (text) {
+        // 普通对话内容
+        matches.push({ name, content: text, isSilence: false })
       }
     }
     
@@ -294,20 +295,38 @@ export default function ChatPage() {
       const splits = splitNpcMessages(lastMessage.content)
       
       if (splits.length > 1) {
-        // 有多个NPC发言，拆分为独立消息
+        // 有多个NPC发言/沉默，拆分为独立消息
         const newMessages = state.messages.slice(0, -1)
         splits.forEach((split) => {
+          const displayContent = split.isSilence 
+            ? `[${split.name}] ......（沉默）`
+            : `[${split.name}] ${split.content}`
+          
           newMessages.push({
             id: Math.random().toString(36).substring(2, 9),
             role: 'npc',
-            content: `[${split.name}] ${split.content}`,
+            content: displayContent,
             timestamp: Date.now(),
             isStreaming: false,
           })
         })
         useStore.setState({ messages: newMessages })
+      } else if (splits.length === 1) {
+        // 单个NPC响应
+        const split = splits[0]
+        const displayContent = split.isSilence
+          ? `[${split.name}] ......（沉默）`
+          : lastMessage.content
+        
+        useStore.setState((state) => ({
+          messages: state.messages.map((msg, idx) =>
+            idx === state.messages.length - 1
+              ? { ...msg, content: displayContent, isStreaming: false }
+              : msg
+          ),
+        }))
       } else {
-        // 单个消息，标记完成
+        // 没有匹配到任何格式，保持原样
         useStore.setState((state) => ({
           messages: state.messages.map((msg, idx) =>
             idx === state.messages.length - 1
@@ -333,6 +352,9 @@ export default function ChatPage() {
         name: '对方',
         title: '场景角色',
         avatar: '👤',
+        portraitUrl: null,
+        portraitTaskId: null,
+        portraitStatus: 'idle',
       }
       setNpcs([defaultNpc])
     }
@@ -783,12 +805,12 @@ export default function ChatPage() {
         <div 
           className="fixed inset-0 z-0"
           style={{
-            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #1a1a2e 100%)',
+            background: 'linear-gradient(135deg, #f0f9f0 0%, #e8f5e9 50%, #f0f9f0 100%)',
           }}
         />
       )}
       {/* 半透明遮罩层，保证文字可读性 */}
-      <div className="fixed inset-0 z-0 bg-black/30" />
+      <div className="fixed inset-0 z-0 bg-white/10" />
 
       {/* Header */}
       <header className="relative z-10 p-4 flex items-center justify-between pixel-border bg-pixel-dark/90">
@@ -910,7 +932,7 @@ export default function ChatPage() {
       )}
 
       {/* Galgame风格：NPC立绘区域 */}
-      <div className="relative z-5 flex-1 flex items-end justify-center pb-4">
+      <div className="relative z-5 flex-1 flex items-end justify-start pl-8 pb-4">
         {(() => {
           // 获取当前显示的消息
           const currentDisplayMessage = messages[displayIndex]

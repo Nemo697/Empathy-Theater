@@ -15,6 +15,8 @@ async function callWithRetry(messages: unknown[], retries = 3): Promise<Response
         model: 'ZhipuAI/GLM-4.7-Flash',
         messages,
         stream: true,
+        // 增加请求间隔，减少频率限制
+        temperature: 0.7,
       }),
     })
 
@@ -22,9 +24,10 @@ async function callWithRetry(messages: unknown[], retries = 3): Promise<Response
       return response
     }
 
-    // If rate limited (429), wait and retry
+    // 如果 rate limited (429)，等待更长时间
     if (response.status === 429 && i < retries - 1) {
-      const waitTime = (i + 1) * 2000 // 2s, 4s, 6s
+      const waitTime = (i + 1) * 5000 // 5s, 10s, 15s
+      console.log(`Rate limited, waiting ${waitTime}ms...`)
       await new Promise(resolve => setTimeout(resolve, waitTime))
       continue
     }

@@ -144,9 +144,13 @@ export default function Home() {
         setImageStatus('failed')
       }
 
-      // Generate NPC portraits in parallel - 等待所有请求发出
-      const portraitPromises = npcs.map(async (npc) => {
+      // Generate NPC portraits sequentially with delay to avoid rate limits
+      const portraitResults = []
+      for (const npc of npcs) {
         try {
+          // 添加延迟避免频率限制
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
           const portraitPrompt = generateNpcPortraitPrompt(npc.name, npc.title)
           const portraitResponse = await fetch('/api/generate-image', {
             method: 'POST',
@@ -158,17 +162,16 @@ export default function Home() {
             const portraitData = await portraitResponse.json()
             console.log(`[Portrait] ${npc.name} taskId: ${portraitData.taskId}`)
             setNpcPortraitTaskId(npc.id, portraitData.taskId)
-            return { npcId: npc.id, taskId: portraitData.taskId, success: true }
+            portraitResults.push({ npcId: npc.id, taskId: portraitData.taskId, success: true })
+          } else {
+            console.error(`Failed to generate portrait for ${npc.name}:`, portraitResponse.status)
+            portraitResults.push({ npcId: npc.id, success: false })
           }
-          return { npcId: npc.id, success: false }
         } catch (err) {
           console.error(`Failed to generate portrait for ${npc.name}:`, err)
-          return { npcId: npc.id, success: false }
+          portraitResults.push({ npcId: npc.id, success: false })
         }
-      })
-
-      // 等待所有画像生成请求发出（但不等待生成完成）
-      await Promise.all(portraitPromises)
+      }
 
       // Navigate to chat page after all requests are sent
       router.push('/chat')
@@ -218,13 +221,18 @@ export default function Home() {
             <label className="block text-xs mb-3 text-pixel-gold">
               角色细节（可选）
             </label>
-            <input
-              type="text"
-              className="pixel-input w-full"
+            <textarea
+              className="pixel-input w-full resize-none overflow-hidden"
               placeholder="例如：老板40多岁，说话很直接"
               value={roleDetails}
-              onChange={(e) => setRoleDetails(e.target.value)}
+              onChange={(e) => {
+                setRoleDetails(e.target.value)
+                // 自动调整高度
+                e.target.style.height = 'auto'
+                e.target.style.height = e.target.scrollHeight + 'px'
+              }}
               disabled={isLoading}
+              rows={1}
             />
           </div>
 
@@ -235,11 +243,11 @@ export default function Home() {
             </label>
             <div className="space-y-3">
               {npcInputs.map((npc, index) => (
-                <div key={index} className="flex gap-2 items-center">
+                <div key={index} className="flex gap-5 items-center">
                   <span className="text-pixel-cyan text-xs w-6">{index + 1}.</span>
                   <input
                     type="text"
-                    className="pixel-input flex-1"
+                    className="pixel-input w-[30%] min-w-0"
                     placeholder="名字（如：小张）"
                     value={npc.name}
                     onChange={(e) => updateNpcInput(index, 'name', e.target.value)}
@@ -248,7 +256,7 @@ export default function Home() {
                   />
                   <input
                     type="text"
-                    className="pixel-input flex-1"
+                    className="pixel-input flex-1 min-w-0"
                     placeholder="身份（如：部门经理）"
                     value={npc.title}
                     onChange={(e) => updateNpcInput(index, 'title', e.target.value)}
@@ -258,7 +266,7 @@ export default function Home() {
                   {npcInputs.length > 1 && (
                     <button
                       type="button"
-                      className="text-pixel-coral text-xs px-2 hover:text-red-400"
+                      className="text-pixel-coral text-xs px-2 hover:text-red-400 flex-shrink-0"
                       onClick={() => removeNpcInput(index)}
                       disabled={isLoading}
                     >
@@ -327,34 +335,24 @@ export default function Home() {
 
       {/* Loading Overlay with Progress */}
       {isLoading && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-white/95 backdrop-blur-md flex items-center justify-center z-50">
           <div className="text-center max-w-md w-full px-8">
             {/* Pixel loader animation */}
             <div className="pixel-loader mx-auto mb-8"></div>
             
             {/* Progress text */}
-            <p className="text-pixel-cyan text-xs mb-6 h-6">
+            <p className="text-pixel-blue font-bold mb-6 h-6">
               {PROGRESS_STEPS[progressStep]?.text}
             </p>
             
             {/* Progress bar */}
-            <div className="relative h-6 bg-pixel-dark pixel-border mb-4">
+            <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden mb-4 border border-gray-200">
               <div 
-                className="h-full bg-pixel-cyan transition-all duration-300"
+                className="h-full bg-gradient-to-r from-pixel-blue to-pixel-cyan transition-all duration-300"
                 style={{ 
                   width: `${progressPercent}%`,
-                  boxShadow: 'inset -2px -2px 0 0 #3ebdb4, inset 2px 2px 0 0 #5efdf4'
                 }}
               />
-              {/* Pixel progress bar segments */}
-              <div className="absolute inset-0 flex">
-                {[...Array(10)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="flex-1 border-r-2 border-black/30 last:border-r-0"
-                  />
-                ))}
-              </div>
             </div>
             
             {/* Percentage */}

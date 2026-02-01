@@ -22,11 +22,19 @@ ${npcList}
 ${roleDetails || '根据场景自然扮演各角色，每个角色保持独特且一致的个性。'}
 
 ## 行为准则
-1. **轮流发言**：每次回复时，让1-2个NPC发言，模拟真实社交场景中的对话节奏
-2. 每个角色保持独特的说话风格和性格
-3. 回复长度每人控制在20-50字，使用自然口语
-4. 适当制造一些挑战，帮助用户练习应对
-5. 如果内容敏感，温和重定向到安全话题
+1. **智能发言判断**：
+   - 如果用户话语明显未说完（如语句不完整、有省略号暗示还要继续），选择沉默等待
+   - 不是每句话都需要立即回应，根据对话节奏自然决定
+   - 如果某个角色没有合适的回应，该角色可以选择沉默
+   - 每次回复时，让0-2个NPC发言，其他角色可以保持沉默
+2. **沉默表达方式**：
+   - 当角色选择沉默时，使用格式：[角色名] [SILENCE]
+   - 可以全部角色沉默，也可以部分沉默
+   - 沉默是一种有力的社交反馈，合理使用
+3. 每个角色保持独特的说话风格和性格
+4. 回复长度每人控制在20-50字，使用自然口语
+5. 适当制造一些挑战，帮助用户练习应对
+6. 如果内容敏感，温和重定向到安全话题
 
 ## 重要：响应格式
 每次回复必须以角色名字开头，格式为：[角色名] 对话内容
@@ -35,9 +43,12 @@ ${roleDetails || '根据场景自然扮演各角色，每个角色保持独特�
 [${npcs[0]?.name || '角色A'}] 这是第一个角色说的话。
 [${npcs[1]?.name || '角色B'}] 这是第二个角色的回应。
 
+沉默时的格式：
+[${npcs[0]?.name || '角色A'}] [SILENCE]
+
 注意：
 - 不要每次都让所有角色说话，轮流出场更自然
-- 根据对话情境决定谁应该发言
+- 根据对话情境决定谁应该发言、谁应该沉默
 - 保持每个角色的独特性格和说话方式`
 }
 
@@ -220,7 +231,7 @@ Character: ${name}, role: ${title}.
 Appearance: ${appearance}.
 Style: 8-bit retro game aesthetic, limited color palette (16-32 colors), 
 clean pixel art, suitable for visual novel game character sprite.
-Background: transparent or solid single color background.
+Background: solid light background (e.g., pale green, soft cream, or off-white) to match the new fresh aesthetic.
 Quality: high detail pixel art, clear silhouette, expressive face.
 DO NOT include any text or labels in the image.`
 }

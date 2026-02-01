@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${API_KEY}`,
         'X-ModelScope-Async-Mode': 'true',
+        'X-ModelScope-Task-Type': 'image_generation',
       },
       body: JSON.stringify({
         model: 'Tongyi-MAI/Z-Image-Turbo',
